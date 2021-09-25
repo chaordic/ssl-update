@@ -1,0 +1,40 @@
+g_hooks['docker-registry.chaordicsystems.com']=restart_docker_registry
+
+##
+# overwrite this var if you prefer to use a different user
+# than the global one
+#
+# SSH_USER="<my prefered user>"
+
+restart_docker_registry() {
+    local fullchain_content="$1"
+    local privkey_content="$2"
+    local dst_dir="/mnt/certs/"
+    local host="docker-registry.chaordicsystems.com"
+    local ssh_output=""
+
+    ssh -T ${SSH_USER}@${host} '
+sudo su -- <<EOFSU
+docker inspect printf "%s" "<(sudo docker ps --format "{{.ID}}" --filter name="registry_auth2")"
+echo "container_id=$container_id"
+echo 1
+exit 1
+if [ -z "$container_id" ]; then
+echo 1
+exit 1
+fi
+pushd "$dst_dir"
+cp -a STAR_chaordicsystems_com.ca_ssl_bundle.crt{,.expired}
+cp -a STAR_chaordicsystems_com.key{,.expired}
+echo "$fullchain_content" > STAR_chaordicsystems_com.ca_ssl_bundle.crt
+echo "$privkey_content" > STAR_chaordicsystems_com.key
+chown root:www-data STAR_chaordicsystems_com*
+chmod 0640 STAR_chaordicsystems_com.key
+popd
+docker container restart $container_id
+echo $?
+EOFSU
+'
+    echo "from out: $ssh_output" 1>&2
+    # return $(tail -1 <<<"$ssh_output")
+}

@@ -1,0 +1,34 @@
+    ssh_output=$(ssh -T ${SSH_USER}@${host} "
+sudo su -- <<EOFSU
+set -x
+docker ps --format "{{.ID}}" --filter name="$container_name" | xargs -I{} [ -z {} ] && echo 1 && exit 1
+docker ps --format "{{.ID}}" --filter name="$container_name" | xargs -I{} docker container restart {} | xargs -I{} [ -n {} ] && echo 1 && exit 1
+echo 0
+EOFSU
+")
+
+
+
+    ssh_output=$(ssh -vT ${SSH_USER}@${host} "
+sudo su -- <<EOFSU
+set -x
+docker ps --format "{{.ID}}" --filter name="$container_name" | xargs -I{} [ -z {} ] && echo 1 && exit 1
+pushd $dst_dir &>/dev/null
+cp -a STAR_chaordicsystems_com.ca_ssl_bundle.crt{,.expired}
+cp -a STAR_chaordicsystems_com.key{,.expired}
+cat <<EOF > STAR_chaordicsystems_com.ca_ssl_bundle.crt
+$fullchain_content
+EOF
+cat <<EOF > STAR_chaordicsystems_com.key
+$privkey_content
+EOF
+chown root:www-data STAR_chaordicsystems_com.ca_ssl_bundle.crt
+chown root:www-data STAR_chaordicsystems_com.key
+chmod 0640 STAR_chaordicsystems_com.key
+popd &>/dev/null
+docker ps --format "{{.ID}}" --filter name="$container_name" |
+xargs -I{} docker container restart {} |
+xargs -I{} [ -n {} ] && echo 1 && exit 1
+echo 0
+EOFSU
+    ")
