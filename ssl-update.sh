@@ -206,21 +206,22 @@ check_deps "$CMDS"
 pmsg info "making sure output dir ..."
 make_sure_output_dir "$OUTPUT_DIR"
 
+mkdir -p "${OUTPUT_DIR}/${g_domain}"
 pmsg info "getting the actual certificate for domain '${g_fqdn}:${g_port}' ..."
-actual_cert_filename=$(get_cert "$g_fqdn" "$g_port" "$OUTPUT_DIR")
+actual_cert_filename=$(get_cert "$g_fqdn" "$g_port" "${OUTPUT_DIR}/${g_domain}")
 # actual_cert_filename="docker-registry.chaordicsystems.com.crt"
 if [ $? -ne 0 ]; then
     pmsg error "getting actual certificate for '$g_fqdn' failed!!!"
     exit 1
 fi
 
-ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${actual_cert_filename})")
-fqdn="$(get_cert_subject ${OUTPUT_DIR}/${actual_cert_filename})"
+ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${g_domain}/${actual_cert_filename})")
+fqdn="$(get_cert_subject ${OUTPUT_DIR}/${g_domain}/${actual_cert_filename})"
 if [ $ndays -le 0 ]; then
     pmsg warn "the certificate for '$fqdn' expired by $ndays day(s)!!!"
 
     pmsg info "downloading certificate from S3 ..."
-    # get_cert_from_s3 "$g_domain" "$OUTPUT_DIR"
+    get_cert_from_s3 "$g_domain" "${OUTPUT_DIR}/${g_domain}"
     if [ $? -ne 0 ]; then
         pmsg error "failed downloading chain and or private key for '$g_domain'!"
         exit 1
@@ -230,17 +231,10 @@ else
     exit 1
 fi
 
-# ndays=$(get_days_from_now "$(get_expired_date . $CHAIN_FILENAME)")
-# # ndays=$(get_days_from_now "Sep 14 13:04:32 2021 GMT")
-# fqdn=$(get_cert_subject . $CHAIN_FILENAME)
-# if [ $ndays -le 0 ]; then
-#     pmsg warn "!!!! the FQDN '$g_fqdn' expired !!!!!"
-#     #issue_new cert
-# else
-#     pmsg warn "the cert '$fqdn' will expire in $ndays day(s)!"
-#     # issue new cert
-# fi
-
-${g_hooks["$g_fqdn"]} "$(cat ${OUTPUT_DIR}/${CHAIN_FILENAME})" "$(cat ${OUTPUT_DIR}/${PRIVK_FILENAME})" "$g_extend"
+${g_hooks["$g_fqdn"]} "$(cat ${OUTPUT_DIR}/${g_domain}/${CHAIN_FILENAME})" "$(cat ${OUTPUT_DIR}/${g_domain}/${PRIVK_FILENAME})" "$g_extend"
 err=$?
-[ $err -ne 0 ] && pmsg error "hook function '${g_hooks[$g_fqdn]}' has failed with error $err"
+if [ $err -eq 0 ]; then
+    pmsg info "the domain '$g_domain' has been renewed; will expire at: $(get_expired_date ${OUTPUT_DIR}/${g_domain}/${CHAIN_FILENAME})"
+else
+    pmsg error "hook function '${g_hooks[$g_fqdn]}' has failed with error $err"
+fi
