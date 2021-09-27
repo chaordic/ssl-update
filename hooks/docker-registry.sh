@@ -7,24 +7,37 @@ g_hooks['docker-registry.chaordicsystems.com']=restart_docker_registry
 # SSH_USER="<my prefered user>"
 
 restart_docker_registry() {
-    local fullchain_content=$1
-    local privkey_content=$2
+    local fullchain_content="$1"
+    local privkey_content="$2"
 
     local dst_dir="/mnt/certs/"
     local container_name="platform-registry"
     local host="docker-registry.chaordicsystems.com"
     local ssh_output=""
 
-ssh -T ${SSH_USER}@${host} <<"EOFSSH"
-sudo su -- <<EOFSU
-set -x
-id=$(sudo docker ps --format "{{.ID}}" --filter name=platform-registry)
-echo $id
-ls adasd
-echo $?
+ssh_output=$(ssh -T ${SSH_USER}@${host} "
+sudo su -- <<'EOFSU'
+pushd $dst_dir &>/dev/null;\
+id=\$(sudo docker ps --format \"{{.ID}}\" --filter name=$container_name);\
+if [ -z \$id ]; then \
+echo 1; exit 1;\
+fi;\
+cp -a STAR_chaordicsystems_com.ca_ssl_bundle.crt{,.expired};\
+cp -a STAR_chaordicsystems_com.key{,.expired};\
+cat <<'EOF' > STAR_chaordicsystems_com.ca_ssl_bundle.crt
+$fullchain_content
+EOF
+cat <<'EOF' > STAR_chaordicsystems_com.key
+$privkey_content
+EOF
+chown root:www-data STAR_chaordicsystems_com.ca_ssl_bundle.crt;\
+chown root:www-data STAR_chaordicsystems_com.key;\
+chmod 0640 STAR_chaordicsystems_com.key;\
+popd &>/dev/null;\
+docker container restart \$id;\
+echo \$?;
 EOFSU
-EOFSSH
+")
 
-    # echo "out: $ssh_output" 1>&2
-    # return $(tail -1 <<<"$ssh_output")
+    return $(tail -1 <<<"$ssh_output")
 }

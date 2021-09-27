@@ -208,6 +208,7 @@ make_sure_output_dir "$OUTPUT_DIR"
 
 pmsg info "getting the actual certificate for domain '${g_fqdn}:${g_port}' ..."
 actual_cert_filename=$(get_cert "$g_fqdn" "$g_port" "$OUTPUT_DIR")
+# actual_cert_filename="docker-registry.chaordicsystems.com.crt"
 if [ $? -ne 0 ]; then
     pmsg error "getting actual certificate for '$g_fqdn' failed!!!"
     exit 1
@@ -226,7 +227,7 @@ if [ $ndays -le 0 ]; then
     fi
 else
     pmsg warn "the certificate '$fqdn' will expire in $ndays day(s) no action will be taken."
-    # exit 1
+    exit 1
 fi
 
 # ndays=$(get_days_from_now "$(get_expired_date . $CHAIN_FILENAME)")
