@@ -10,14 +10,15 @@
 #
 S3_BUCKET="s3://lambda-letsencrypt-ti/letsencrypt_internal/Certs"
 # Destination where the certs will be downloaded
-OUTPUT_DIR="/tmp/tmp_certs"
+TMP_SUFFIX="-certs"
+OUTPUT_DIR=""
 # full chain and private key files of the certificate.
 CHAIN_FILENAME="fullchain.pem"
 PRIVK_FILENAME="privkey.pem"
 # Strict number of days that will be remaining to expire the certificate
 MAX_DAYS=30
 # Commands that this script depends on
-CMDS_DEPS="aws ssh date openssl awk tr"
+CMDS_DEPS="aws ssh date openssl awk tr mktemp"
 
 
 ##
@@ -52,15 +53,13 @@ check_deps() {
 }
 
 ###
-# make_sure_output_dir - garatee the output dir exists
+# make_sure_output_dir - garatee the output dir exists and it is unique
 #
-# params:
-#   $1 [in][string] - dir name
+# params: none
 #
-# return: none
+# return: [string] absolute path for the unique directory, based on TMP
 make_sure_output_dir() {
-    local target="$1"
-    [ -d "$OUTPUT_DIR" ] || mkdir -p "$OUTPUT_DIR"
+    mktemp --suffix=${TMP_SUFFIX}
 }
 
 ###
@@ -198,49 +197,37 @@ trim_subject() {
 }
 
 ###
-# get_target_hosts - get a list of ips (space separeted) form the csv argument $1
-#   WARNING: in case user does not pass port, still an empty comma must be assigned
-# otherwise the first ip will be discated; eg.: 1.1.1.1,2.2.2.2,3.3.3.3 wrong the first
-# ip will be discarted; correct: ,1.1.1.1,2.2.2.2,3.3.3.3; the first parameter is always
-# ignored by this function.
+# get_extra_params - get extra params from the pair of arguments from
+#   the assiciative array parameters. Those arguments are arbitrary, verify
+# the documentation for the hook function; e.g: default.sh import_certificate.
 #
 # params:
-#   $1 [in][string] - csv (it may has port and) a list of ips.
+#   $1 [in][string] - semicolon parameter with pair of arguments, pair one: port
+#     number where the https server listen; pair two arbitrary argument for hook function.
 #
-# return: [string] space separeted ips
-get_target_hosts() {
+# return: [string] arbitrary list of arguments defined by user at associative array.
+#   e.g.: ['myhost.mydomain.com']='8080;--ips x.x.x.x,y.y.y.y --subject mydomain.com'
+get_extra_params() {
     local domain_params="$1"
-    local hosts="" ifs_bk=$IFS
-
-    IFS=','
-    set -- $domain_params
-    IFS=$ifs_bk
-    shift # trow port
-    hosts="$1"
-    shift
-    for host in $*; do
-        hosts="$hosts $host"
-    done
-
-    echo "$hosts"
-
+    awk -F';' '{print $2}' <<<$domain_params
 }
 
 ###
-# get_target_port - extract the port number from the fist parameter; expected a csv;
-#   e.g.: ,1.1.1.1,2.2.2.2,3.3.3.3, empty port, assume 443
-#   e.g.: 5000,1.1.1.1,2.2.2.2,3.3.3.3 port 5000
+# get_port - extract the port number from the first pair of parameter defined by the user
+#   at associative array.
+#   e.g.: ['myhost.mydomain.com']='8080;...'
 #
 # params:
-#   $1 [in][string] - csv with port (it may has) and ip list
+#   $1 [in][string] - semicolon parameter with pair of arguments, pair one: port
+#     number where the https server listen; pair two arbitrary argument for hook function.
 #
-# return: [string] port number; if no port has been found at the csv parameter,
+# return: [string] port number; if no port has been found at the semicolon pair parameter,
 #   443 is assumed.
-get_target_port() {
+get_port() {
     local domain_params="$1"
     local port=""
 
-    read -d',' port <<<"$domain_params"
+    read -d';' port <<<$domain_params
     [ -z "$port" ] && port=443  # if it's empty; assume 443
 
     echo "$port"
@@ -281,13 +268,13 @@ update_certs() {
     pmsg info "checking dependencies ..."
     check_deps "$CMDS"
     pmsg info "making sure output dir ..."
-    make_sure_output_dir "$OUTPUT_DIR"
+    OUTPUT_DIR="$(make_sure_output_dir)"
 
     port=0
     func=""
     host=""
     for domain in ${!fqdns[@]}; do
-        port=$(get_target_port "${fqdns[$domain]}")
+        port=$(get_port "${fqdns[$domain]}")
         if ! is_number "$port"; then
             pmsg error "param for domain '$domain' is not a number '$port'; ignoring domain!"
             continue
@@ -325,13 +312,13 @@ update_certs() {
         if [ -z "${g_hooks[$domain]}" ]; then
             import_certificate "$(cat ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})" \
                                "$(cat ${OUTPUT_DIR}/${domain}/${PRIVK_FILENAME})" \
-                               "$(get_target_hosts ${fqdns[$domain]})"
+                               "$(get_extra_params ${fqdns[$domain]})"
             err=$?
             func="import_cert"
         else
             ${g_hooks["$domain"]} "$(cat ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})" \
                                   "$(cat ${OUTPUT_DIR}/${domain}/${PRIVK_FILENAME})" \
-                                  ""
+                                  "$(get_extra_params ${fqdns[$domain]})"
             err=$?
             func="${g_hooks["$domain"]}"
         fi
@@ -351,7 +338,7 @@ update_certs() {
 
 __main__() {
     declare -rA DOMAINS=(
-        ['graylog.chaordicsystems.com']=';-i 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
+        ['graylog.chaordicsystems.com']=';--ips 10.50.10.135,10.50.10.240 --subject chaordicsystems.com'
     )
     update_certs DOMAINS
 }
