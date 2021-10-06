@@ -13,33 +13,43 @@ PRIV_FILE_SUFFIX=".key"
 #
 # Parameters accepted via cli
 #
-SHORT_OPTS="i:s:p:"
+SHORT_OPTS="h:s:p:c:k:"
 LONG_OPTS=(
-    "ips:"
+    "host:"
     "subject:"
     "ssl_path:"
+    "cert:"
+    "priv:"
 )
 
+#
+# Those variables are filled up via cli
+# values assigned are default.
+#
 _subject=""
-_list_ips=""
+_hosts=""
 _ssl_path="/etc/nginx/ssl"
+_priv_filename=""
+_cert_filename=""
 
 parse_params() {
-    local params=$1
-    local ret=0
+    local params="$1"
+    local ret=0 opts_output=""
 
     set -- $params
-    opts=$(getopt \
-           --longoptions "$( printf "%s," ${LONG_OPTS[@]} )" \
-           --name "$(basename $BASH_SOURCE)" \
-           --options "$SHORT_OPTS" \
-           -- "$@"
-        )
+    opts_output=$(getopt --longoptions "$( printf "%s," ${LONG_OPTS[@]} )" \
+                         --name "$(basename $BASH_SOURCE)" \
+                         --options "$SHORT_OPTS" \
+                         -- "$@" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo "$opts_output" 1>&2
+        return 1
+    fi
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --ips|-i)
-                _list_ips="$2"
+            --host|-h)
+                _hosts="$2"
                 shift 2
                 ;;
 
@@ -51,8 +61,16 @@ parse_params() {
                 _ssl_path="$2"
                 shift 2
                 ;;
+            --cert|-c)
+                _cert_filename="$2"
+                shift 2
+                ;;
+            --priv|-k)
+                _priv_filename="$2"
+                shift 2
+                ;;
             *)
-                pmsg error "error 1: '$1' parameter not found!" 1>&2
+                pmsg error "'$1' parameter not found!" 1>&2
                 shift
                 ret=1
                 ;;
@@ -78,8 +96,7 @@ import_certificate() {
     local extended="$3"
 
     local ssh_output="" ifs_bk=$'$IFS'
-    local cert_file="" priv_file=""
-    local prev_last="" last_line="" flag="" ret=0 aux=0
+    local last_line="" flag="" ret=0
 
     if ! parse_params "$extended"; then return 1; fi
 
@@ -88,47 +105,45 @@ import_certificate() {
         return 1
     fi
 
-    cert_file="$(get_cert_filename $_subject)"
-    priv_file="$(get_priv_filename $_subject)"
-    SSH_USER="alessandroelias"
+    [ -z "$_cert_filename" ] && _cert_filename="$(get_cert_filename $_subject)"
+    [ -z "$_priv_filename" ] && _priv_filename="$(get_priv_filename $_subject)"
+
     IFS=','
-    for ip in $_list_ips; do
-        ssh_output=$(ssh -T -o IdentitiesOnly=yes -o PreferredAuthentications=publickey $SSH_USER@$ip "
+    for host in $_hosts; do
+        ssh_output=$(ssh -T -o IdentitiesOnly=yes -o PreferredAuthentications=publickey $SSH_USER@$host "
 sudo su -- <<'EOFSU' 2>&1
 set -e;\
 pushd $_ssl_path;\
-cp -a $cert_file ${cert_file}.expired;\
-cp -a $priv_file ${priv_file}.expired;\
-cat <<'EOF' > $cert_file
+cp -a $_cert_filename ${_cert_filename}.expired;\
+cp -a $_priv_filename ${_priv_filename}.expired;\
+cat <<'EOF' > $_cert_filename
 $fullchain_content
 EOF
-cat <<'EOF' > $priv_file
+cat <<'EOF' > $_priv_filename
 $privkey_content
 EOF
-chown root:www-data $cert_file;\
-chown root:www-data $priv_file;\
-chmod 0640 $priv_file;\
+chown root:www-data $_cert_filename;\
+chown root:www-data $_priv_filename;\
+chmod 0640 $_priv_filename;\
 popd;\
-nginx -s reload
+nginx -s reload;\
 echo "exiting,\$?";
 EOFSU
 ")
-        last_line=$(tail -1 <<<"$ssh_output")
+        last_line=$(grep -Eo '^exiting,[0-9]$' <<<"$ssh_output")
         if [[ "$last_line" =~ exiting,[0-9]+ ]]; then
-            read flag aux <<<$last_line
-            if ! is_number "$aux"; then
+            read flag ret <<<"$last_line"
+            if ! is_number "$ret"; then
                 ret=1
-                aux=1
                 pmsg error "last line must be a number; success (0) or failure (!= 0)" 1>&2
             fi
         else
             pmsg error "last line must be a number; success (0) or failure (!= 0)" 1>&2
             ret=1
-            aux=1
         fi
 
-        if [ $aux -ne 0 ]; then
-            pmsg error "from host '$ip'" 1>&2
+        if [ $ret -ne 0 ]; then
+            pmsg error "from host '$host'" 1>&2
             echo "$ssh_output" 1>&2
         fi
     done
