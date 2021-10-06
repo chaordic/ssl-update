@@ -6,8 +6,9 @@
 
 # Source where expected the full chain certificate and private key
 # files could be found.
+#   eg.: s3://lambda-letsencrypt-ti/letsencrypt_internal/Certs/chaordicsystems.com/fullchain.pem
 #
-S3_BUCKET="s3://"
+S3_BUCKET="s3://lambda-letsencrypt-ti/letsencrypt_internal/Certs"
 # Destination where the certs will be downloaded
 OUTPUT_DIR="/tmp/tmp_certs"
 # full chain and private key files of the certificate.
@@ -16,43 +17,20 @@ PRIVK_FILENAME="privkey.pem"
 # Strict number of days that will be remaining to expire the certificate
 MAX_DAYS=30
 # Commands that this script depends on
-CMDS_DEPS="aws ssh date openssl kill ssh-agent"
+CMDS_DEPS="aws ssh date openssl awk tr"
 
-declare -Ar MSG_LEVEL=([warn]="[WARNING]: "
-                       [info]="[INFO]: "
-                       [error]="[ERROR]: "
-                      )
-declare -Ar LEVEL_COLORS=([warn]='\033[1;33m'
-                          [info]='\033[32m'
-                          [error]='\033[31m'
-                         )
 
-#
+##
 # Global variables
 #
-
 # hooks to be called with methods to perform the renew certificate
 declare -A g_hooks=()
 
 
-# extend functionality of the hook functions
-g_extend=""
-
-
 ################################## functions ##################################
-###
-# pmsg - pop message on the screen
-#
-# params:
-#   $1 [in][string] - level of the message
-#
-# return: none
-pmsg() {
-    local level=$1
-
-    shift
-    echo -e "${LEVEL_COLORS[$level]}${MSG_LEVEL[$level]}\033[0m${@}"
-}
+##
+# Load helpers functions
+for helper in $(ls lib/*.sh); do source $helper; done
 
 ###
 # check_deps - verify if dependencies can be found as a command at bash
@@ -66,9 +44,11 @@ pmsg() {
 check_deps() {
     local cmds="$1"
 
+    set -e
     for cmd in $CMDS_DEPS; do
         type command $cmd 1>/dev/null
     done
+    set +e
 }
 
 ###
@@ -183,15 +163,6 @@ get_cert_subject() {
 }
 
 ###
-# is_integer - check if only number
-#
-# params:
-#   $1 [in][integer] - string representing the suposed integer
-#
-# return: 0 if is integer otherwise 1
-is_integer() { [ -n "${1##*[!0-9]*}" ]; }
-
-###
 # set_wd - set current working dir via stack; it parses the script
 #   and guess where is the absolute path of the script
 #
@@ -296,7 +267,7 @@ update_certs() {
     local ret=0 ssh_agent_vars=""
 
     if [ $# -ne 1 ]; then
-        pmsg error "wrong number of parameters; expected associative array with domain and [port]!!!"
+        pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
         exit 1
     fi
 
@@ -317,7 +288,7 @@ update_certs() {
     host=""
     for domain in ${!fqdns[@]}; do
         port=$(get_target_port "${fqdns[$domain]}")
-        if ! is_integer "$port"; then
+        if ! is_number "$port"; then
             pmsg error "param for domain '$domain' is not a number '$port'; ignoring domain!"
             continue
             ret=1
@@ -337,7 +308,7 @@ update_certs() {
         if [ $ndays -le 0 ]; then
             pmsg warn "the certificate for subject '$subject' expired by $ndays day(s)!!!"
             pmsg info "downloading certificate from S3 ..."
-            get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${domain}"
+            # get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${domain}"
             if [ $? -ne 0 ]; then
                 pmsg error "failed downloading chain and or private key for '$domain'!"
                 continue
@@ -349,6 +320,7 @@ update_certs() {
         fi
         #
         # Calling appropriate function to renew the certificate
+        # If function has not been defined, assume default (import_certificate)
         #
         if [ -z "${g_hooks[$domain]}" ]; then
             import_certificate "$(cat ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})" \
@@ -379,7 +351,7 @@ update_certs() {
 
 __main__() {
     declare -rA DOMAINS=(
-        ['mydomain.com']=',1.1.1.1'
+        ['graylog.chaordicsystems.com']=';-i 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
     )
     update_certs DOMAINS
 }
