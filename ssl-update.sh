@@ -18,7 +18,7 @@ PRIVK_FILENAME="privkey.pem"
 # Strict number of days that will be remaining to expire the certificate
 MAX_DAYS=30
 # Commands that this script depends on
-CMDS_DEPS="aws ssh date openssl awk tr mktemp"
+CMDS_DEPS="aws ssh date openssl awk tr mktemp grep"
 
 
 ##
@@ -29,10 +29,6 @@ declare -A g_hooks=()
 
 
 ################################## functions ##################################
-##
-# Load helpers functions
-for helper in $(ls lib/*.sh); do source $helper; done
-
 ###
 # check_deps - verify if dependencies can be found as a command at bash
 #
@@ -59,7 +55,7 @@ check_deps() {
 #
 # return: [string] absolute path for the unique directory, based on TMP
 make_sure_output_dir() {
-    mktemp --suffix=${TMP_SUFFIX}
+    mktemp --directory --suffix=${TMP_SUFFIX}
 }
 
 ###
@@ -105,10 +101,11 @@ get_cert_from_s3() {
     local domain="$1" dst_dir="$2"
     local ret=0
 
-    aws s3 cp "$S3_BUCKET/$domain/$CHAIN_FILENAME" "$dst_dir"
+    stdbuf -o0 aws s3 cp "$S3_BUCKET/$domain/$CHAIN_FILENAME" "$dst_dir"
     ret=$?
     if [ $ret -eq 0 ]; then
-        aws s3 cp "$S3_BUCKET/$domain/$PRIVK_FILENAME" "$dst_dir"
+        stdbuf -o0 aws s3 cp "$S3_BUCKET/$domain/$PRIVK_FILENAME" "$dst_dir"
+        echo
         ret=$?
     fi
 
@@ -200,16 +197,28 @@ trim_subject() {
 # get_extra_params - get extra params from the pair of arguments from
 #   the assiciative array parameters. Those arguments are arbitrary, verify
 # the documentation for the hook function; e.g: default.sh import_certificate.
+# In case the associative element does not have values (pair <port>;arguments)
+# host is assumed to be $1 (domain), and the subject $2.
+# e.g.: '8080;--host x.x.x.x,y.y.y.y'
 #
 # params:
-#   $1 [in][string] - semicolon parameter with pair of arguments, pair one: port
+#   $1 [in][string] - full qualify domain name
+#   $2 [in][string] - subject from the certificate; the domain e.g.: chaordicsystems.com
+#   $3 [in][string] - semicolon parameter with pair of arguments, pair one: port
 #     number where the https server listen; pair two arbitrary argument for hook function.
 #
 # return: [string] arbitrary list of arguments defined by user at associative array.
-#   e.g.: ['myhost.mydomain.com']='8080;--ips x.x.x.x,y.y.y.y --subject mydomain.com'
+#   e.g.: ['myhost.mydomain.com']='8080;--host x.x.x.x,y.y.y.y --subject mydomain.com'
 get_extra_params() {
-    local domain_params="$1"
-    awk -F';' '{print $2}' <<<$domain_params
+    local fqdn="$1" subject="$2" domain_params=$3
+    local params=""
+
+    params=$(awk -F';' '{print $2}' <<<$domain_params)
+    if [ -z "$params" ]; then
+        params="--host $fqdn --subject $(trim_subject $subject)"
+    fi
+
+    echo "$params"
 }
 
 ###
@@ -258,7 +267,6 @@ update_certs() {
         exit 1
     fi
 
-    set_wd "$BASH_SOURCE"
     pmsg info "loading hooks ..."
     for hook in $(ls -1 hooks/*.sh); do
         echo "   loading $(basename $hook) ..."
@@ -273,31 +281,31 @@ update_certs() {
     port=0
     func=""
     host=""
-    for domain in ${!fqdns[@]}; do
-        port=$(get_port "${fqdns[$domain]}")
+    for fqdn in ${!fqdns[@]}; do
+        port=$(get_port "${fqdns[$fqdn]}")
         if ! is_number "$port"; then
-            pmsg error "param for domain '$domain' is not a number '$port'; ignoring domain!"
+            pmsg error "param for domain '$fqdn' is not a number arg. '$port'; ignoring domain!"
             continue
             ret=1
         fi
 
-        mkdir -p "${OUTPUT_DIR}/${domain}"
-        pmsg info "getting the actual certificate for domain '${domain}:${port}' ..."
-        actual_cert_filename=$(get_cert "$domain" "$port" "${OUTPUT_DIR}/${domain}")
+        mkdir -p "${OUTPUT_DIR}/${fqdn}"
+        pmsg info "getting the actual certificate for '${fqdn}:${port}' ..."
+        actual_cert_filename=$(get_cert "$fqdn" "$port" "${OUTPUT_DIR}/${fqdn}")
         if [ $? -ne 0 ]; then
-            pmsg error "getting actual certificate for '$domain' failed; ignoring domain!!!"
+            pmsg error "getting actual certificate for '$fqdn' failed; ignoring domain!!!"
             continue
             ret=1
         fi
 
-        ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${domain}/${actual_cert_filename})")
-        subject="$(get_cert_subject ${OUTPUT_DIR}/${domain}/${actual_cert_filename})"
+        ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})")
+        subject="$(get_cert_subject ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})"
         if [ $ndays -le 0 ]; then
             pmsg warn "the certificate for subject '$subject' expired by $ndays day(s)!!!"
             pmsg info "downloading certificate from S3 ..."
-            # get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${domain}"
+            get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${fqdn}"
             if [ $? -ne 0 ]; then
-                pmsg error "failed downloading chain and or private key for '$domain'!"
+                pmsg error "failed downloading chain and or private key for '$fqdn'!"
                 continue
                 ret=1
             fi
@@ -309,21 +317,18 @@ update_certs() {
         # Calling appropriate function to renew the certificate
         # If function has not been defined, assume default (import_certificate)
         #
-        if [ -z "${g_hooks[$domain]}" ]; then
-            import_certificate "$(cat ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})" \
-                               "$(cat ${OUTPUT_DIR}/${domain}/${PRIVK_FILENAME})" \
-                               "$(get_extra_params ${fqdns[$domain]})"
-            err=$?
-            func="import_cert"
+        if [ -z "${g_hooks[$fqdn]}" ]; then
+            func="import_certificate"
         else
-            ${g_hooks["$domain"]} "$(cat ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})" \
-                                  "$(cat ${OUTPUT_DIR}/${domain}/${PRIVK_FILENAME})" \
-                                  "$(get_extra_params ${fqdns[$domain]})"
-            err=$?
-            func="${g_hooks["$domain"]}"
+            func="${g_hooks[$fqdn]}"
         fi
+
+        $func "$(cat ${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME})" \
+              "$(cat ${OUTPUT_DIR}/${fqdn}/${PRIVK_FILENAME})" \
+              "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
+        err=$?
         if [ $err -eq 0 ]; then
-            pmsg info "the domain '$domain' has been renewed; will expire at: $(get_expired_date ${OUTPUT_DIR}/${domain}/${CHAIN_FILENAME})"
+            pmsg info "the domain '$fqdn' has been renewed; it will expire at: $(get_expired_date "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")"
         else
             pmsg error "hook function '$func' has failed with error $err"
             ret=1
@@ -333,12 +338,29 @@ update_certs() {
     return $ret
 }
 
+clean_up() {
+    [ -d "$OUTPUT_DIR" ] &&  rm -rf "$OUTPUT_DIR"
+    popd &>/dev/null
+}
+
 ################################## Entrypoint ##################################
+##
+# setup signals
+trap clean_up INT TERM EXIT
+
+set_wd "$BASH_SOURCE"
+
+##
+# Load helpers functions
+for helper in $(ls lib/*.sh); do source $helper; done
+
+##
+# load vars
 [ -f ".env" ] && source ".env"
 
 __main__() {
     declare -rA DOMAINS=(
-        ['graylog.chaordicsystems.com']=';--ips 10.50.10.135,10.50.10.240 --subject chaordicsystems.com'
+        ['etl4-onsite.chaordic.com.br']=';-h etl4-onsite.chaordic.com.br -s chaordic.com.br -p /etc/ssl/certs -c STAR_chaordic_com_br.ca_ssl_bundle.crt -k STAR_chaordic_com_br.key'
     )
     update_certs DOMAINS
 }
