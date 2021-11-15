@@ -28,7 +28,17 @@ CMDS_DEPS="aws ssh date openssl awk tr mktemp grep"
 declare -A g_hooks=()
 
 
+##
+# setup signals
+trap clean_up INT TERM EXIT
+
+
 ################################## functions ##################################
+clean_up() {
+    [ -d "$OUTPUT_DIR" ] &&  rm -rf "$OUTPUT_DIR"
+    popd &>/dev/null
+}
+
 ###
 # check_deps - verify if dependencies can be found as a command at bash
 #
@@ -300,7 +310,7 @@ update_certs() {
 
         ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})")
         subject="$(get_cert_subject ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})"
-        if [ $ndays -le 0 ]; then
+        if [ $ndays -le $MAX_DAYS ]; then
             pmsg warn "the certificate for subject '$subject' expired by $ndays day(s)!!!"
             pmsg info "downloading certificate from S3 ..."
             get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${fqdn}"
@@ -338,15 +348,8 @@ update_certs() {
     return $ret
 }
 
-clean_up() {
-    [ -d "$OUTPUT_DIR" ] &&  rm -rf "$OUTPUT_DIR"
-    popd &>/dev/null
-}
 
 ################################## Entrypoint ##################################
-##
-# setup signals
-trap clean_up INT TERM EXIT
 
 set_wd "$BASH_SOURCE"
 
@@ -360,7 +363,7 @@ for helper in $(ls lib/*.sh); do source $helper; done
 
 __main__() {
     declare -rA DOMAINS=(
-        ['etl4-onsite.chaordic.com.br']=';-h etl4-onsite.chaordic.com.br -s chaordic.com.br -p /etc/ssl/certs -c STAR_chaordic_com_br.ca_ssl_bundle.crt -k STAR_chaordic_com_br.key'
+        ['analytics.chaordic.com.br']=''
     )
     update_certs DOMAINS
 }
