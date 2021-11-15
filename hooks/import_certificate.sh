@@ -24,8 +24,8 @@ LONG_OPTS=(
 _subject=""
 _hosts=""
 _ssl_path="/etc/ssl/certs"
-_priv_filename="STAR_chaordic_com_br.ca_ssl_bundle.crt"
-_cert_filename="STAR_chaordic_com_br.key"
+_priv_filename="STAR_chaordic_com_br.key"
+_cert_filename="STAR_chaordic_com_br.ca_ssl_bundle.crt"
 
 parse_params() {
     local params="$1"
@@ -94,7 +94,7 @@ import_certificate() {
     for host in $_hosts; do
         ssh_output=$(ssh -T -o IdentitiesOnly=yes -o PreferredAuthentications=publickey $SSH_USER@$host "
 sudo su -- <<'EOFSU' 2>&1
-set -e;\
+set -xe;\
 pushd $_ssl_path;\
 cp -a $_cert_filename ${_cert_filename}.expired;\
 cp -a $_priv_filename ${_priv_filename}.expired;\
