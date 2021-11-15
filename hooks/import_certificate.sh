@@ -5,11 +5,6 @@
 # SSH_USER="<my prefered user>"
 
 
-CERT_FILE_PREFIX="STAR_"
-CERT_FILE_SUFFIX=".ca_ssl_bundle"
-PRIV_FILE_PREFIX="STAR_"
-PRIV_FILE_SUFFIX=".key"
-
 #
 # Parameters accepted via cli
 #
@@ -28,9 +23,9 @@ LONG_OPTS=(
 #
 _subject=""
 _hosts=""
-_ssl_path="/etc/nginx/ssl"
-_priv_filename=""
-_cert_filename=""
+_ssl_path="/etc/ssl/certs"
+_priv_filename="STAR_chaordic_com_br.ca_ssl_bundle.crt"
+_cert_filename="STAR_chaordic_com_br.key"
 
 parse_params() {
     local params="$1"
@@ -80,16 +75,6 @@ parse_params() {
     return $ret
 }
 
-get_cert_filename() {
-    local subject="$1"
-    echo "${CERT_FILE_PREFIX}$(tr '.' '_' <<<$subject)${CERT_FILE_SUFFIX}"
-}
-
-get_priv_filename() {
-    local subject="$1"
-    echo "${PRIV_FILE_PREFIX}$(tr '.' '_' <<<$subject)${PRIV_FILE_SUFFIX}"
-}
-
 import_certificate() {
     local fullchain_content="$1"
     local privkey_content="$2"
@@ -104,9 +89,6 @@ import_certificate() {
         echo "SSH_USER variable has not been defined!\nAborting renew." 1>&2
         return 1
     fi
-
-    [ -z "$_cert_filename" ] && _cert_filename="$(get_cert_filename $_subject)"
-    [ -z "$_priv_filename" ] && _priv_filename="$(get_priv_filename $_subject)"
 
     IFS=','
     for host in $_hosts; do
