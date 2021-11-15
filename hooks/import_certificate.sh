@@ -24,8 +24,8 @@ LONG_OPTS=(
 _subject=""
 _hosts=""
 _ssl_path="/etc/ssl/certs"
-_priv_filename="STAR_chaordic_com_br.key"
 _cert_filename="STAR_chaordic_com_br.ca_ssl_bundle.crt"
+_priv_filename="STAR_chaordic_com_br.key"
 
 parse_params() {
     local params="$1"
