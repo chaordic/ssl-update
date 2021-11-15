@@ -270,7 +270,7 @@ get_port() {
 # return: 0 on sucess, otherwise an error code greater than zero
 update_certs() {
     local -n fqdns=$1
-    local ret=0 ssh_agent_vars=""
+    local ret=0 msg=""
 
     if [ $# -ne 1 ]; then
         pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
@@ -311,7 +311,13 @@ update_certs() {
         ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})")
         subject="$(get_cert_subject ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})"
         if [ $ndays -le $MAX_DAYS ]; then
-            pmsg warn "the certificate for subject '$subject' expired by $ndays day(s)!!!"
+            if [ $ndays -lt 0 ]; then
+                msg="the certificate for subject '$subject' expired by ${ndays#-} day(s)!!!"
+            else
+                msg="the certificate for subject '$subject' will expire in $ndays day(s)!!!"
+            fi
+
+            pmsg warn "$msg"
             pmsg info "downloading certificate from S3 ..."
             get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${fqdn}"
             if [ $? -ne 0 ]; then
