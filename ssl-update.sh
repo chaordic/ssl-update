@@ -123,15 +123,29 @@ get_cert_from_s3() {
 }
 
 ###
-# get_expired_date - read expired date from the fullchain cert filename
+# get_expired_date_from_cert - read expired date from the fullchain cert filename
 #
 # params:
 #   $1 [in][string] - target directory
 #
 # return [integer]: the code returned by openssl command
-get_expired_date() {
+get_expired_date_from_cert() {
     local chain_path_filename="$1"
     openssl x509 -noout -enddate -in "$chain_path_filename" | awk -F'=' '{print $2}'
+    return $?
+}
+
+###
+# get_expired_date - read expired date from the output of openssl s_client connection
+#
+# params:
+#   $1 [in][string] - target directory
+#
+# return [integer]: the code returned by grep command
+#   also the output of the grep; what it should be something 'Sep 30 14:01:15 2021 GMT'
+get_expired_date() {
+    local chain_path_filename="$1"
+    grep -E '^notAfter=.*' "$chain_path_filename" | awk -F'=' '{print $2}'
     return $?
 }
 
@@ -344,7 +358,7 @@ update_certs() {
               "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
         err=$?
         if [ $err -eq 0 ]; then
-            pmsg info "the domain '$fqdn' has been renewed; it will expire at: $(get_expired_date "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")"
+            pmsg info "the domain '$fqdn' has been renewed; it will expire at: $(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")"
         else
             pmsg error "hook function '$func' has failed with error $err"
             ret=1
