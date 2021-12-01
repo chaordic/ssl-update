@@ -260,9 +260,11 @@ get_extra_params() {
 #   443 is assumed.
 get_port() {
     local domain_params="$1"
-    local port=""
+    local port="" ifs_bk=$IFS
 
-    read -d';' port <<<$domain_params
+    IFS=$' \t\r\n'
+    read -r -d';' port <<<$domain_params
+    IFS=$ifs_bk
     [ -z "$port" ] && port=443  # if it's empty; assume 443
 
     echo "$port"
