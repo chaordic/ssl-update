@@ -327,7 +327,7 @@ update_certs() {
             ret=1
         fi
 
-        ndays=$(get_days_from_now "$(get_expired_date ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})")
+        ndays=$(get_days_from_now "$(get_expired_date_from_cert ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})")
         subject="$(get_cert_subject ${OUTPUT_DIR}/${fqdn}/${actual_cert_filename})"
         if [ $ndays -le $MAX_DAYS ]; then
             if [ $ndays -lt 0 ]; then
@@ -389,8 +389,14 @@ for helper in $(ls lib/*.sh); do source $helper; done
 
 __main__() {
     declare -rA DOMAINS=(
-        ['analytics.chaordic.com.br']=''
+        ['etl4-onsite.chaordic.com.br']=''
+        ['etl4-mail.chaordic.com.br']=''
+        ['docker-registry.chaordicsystems.com']='5000'
+        ['graylog.chaordicsystems.com']=';-h 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
+        ['analytics.chaordic.com.br']=';-h analytics.chaordic.com.br -s chaordic.com.br -p /etc/nginx/ssl/ -c STAR_chaordic_com_br.ca_ssl_bundle -k STAR_chaordic_com_br.key'
+        ['core-vpn.chaordicsystems.com']=';-h core-vpn.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
     )
+
     update_certs DOMAINS
 }
 
