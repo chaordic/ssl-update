@@ -21,7 +21,8 @@ PRIVK_FILENAME="privkey.pem"
 MAX_DAYS=30
 # Commands that this script depends on
 CMDS_DEPS="aws ssh date openssl awk tr mktemp grep"
-
+# Role with access to $S3_BUCKET
+ROLE="rundeck3"
 
 ##
 # Global variables
@@ -271,6 +272,19 @@ get_port() {
 }
 
 ###
+# get_aws_id - get aws identity
+#
+# params:
+#   none
+#
+# return: name of the role with access to the bucket
+# arn:aws:sts::227874271258:assumed-role/<<<rundeck3>>>>/i-...
+get_aws_id() {
+    aws sts get-caller-identity | jq -r '.Arn' | awk -F'/' '{print $2}'
+}
+
+
+###
 # update_certs - this is the function that parses and update the certificats according to the
 #   associative array; where fqdn list is parsed, verified and if the certificate expired or not,
 # and update them as needed.
@@ -294,6 +308,9 @@ update_certs() {
         pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
         exit 1
     fi
+
+    if [ "x$(get_aws_id)" != "x$ROLE" ]; then
+        pmsg error "AWS identity does not match '$ROLE'\nIdentity:\n$(aws sts get-caller-identity)\nmay not have access to $S3_BUCKET"
 
     pmsg info "loading hooks ..."
     for hook in $(ls -1 hooks/*.sh); do
