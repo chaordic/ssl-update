@@ -311,6 +311,7 @@ update_certs() {
 
     if [ "x$(get_aws_id)" != "x$ROLE" ]; then
         pmsg error "AWS identity does not match '$ROLE'\nIdentity:\n$(aws sts get-caller-identity)\nmay not have access to $S3_BUCKET"
+    fi
 
     pmsg info "loading hooks ..."
     for hook in $(ls -1 hooks/*.sh); do
