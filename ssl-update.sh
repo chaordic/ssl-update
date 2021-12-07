@@ -88,7 +88,7 @@ get_cert() {
     local err=0 file_name=""
     local cert=""
 
-    cert=$(echo | openssl s_client -connect "$fqdn:$port" 2>&1)
+    cert=$(echo | openssl s_client -connect "${fqdn}:${port}" 2>&1)
     err=$?
     if [ $err -eq 0 ]; then
         file_name="${fqdn}.crt"
@@ -179,7 +179,7 @@ get_days_from_now() {
 get_cert_subject() {
     local chain_path_filename="$1" subject="" ret=0
 
-    subject="$(openssl x509 -noout -subject -in $chain_path_filename)"
+    subject=$(openssl x509 -noout -subject -in "$chain_path_filename")
     ret=$?
     echo "${subject##*=}"
     return $ret
@@ -383,7 +383,8 @@ update_certs() {
               "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
         err=$?
         if [ $err -eq 0 ]; then
-            pmsg info "the domain '$fqdn' has been renewed; it will expire at: $(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")"
+            aux=$(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")
+            pmsg info "the domain '$fqdn' has been renewed; it will expire at: $aux"
         else
             pmsg error "hook function '$func' has failed with error $err"
             ret=1
@@ -409,12 +410,16 @@ for helper in $(ls lib/*.sh); do source $helper; done
 
 __main__() {
     declare -rA DOMAINS=(
-        ['etl4-onsite.chaordic.com.br']=''
-        ['etl4-mail.chaordic.com.br']=''
-        ['docker-registry.chaordicsystems.com']='5000'
-        ['graylog.chaordicsystems.com']=';-h 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
-        ['analytics.chaordic.com.br']=';-h analytics.chaordic.com.br -s chaordic.com.br -p /etc/nginx/ssl/ -c STAR_chaordic_com_br.ca_ssl_bundle -k STAR_chaordic_com_br.key'
-        ['core-vpn.chaordicsystems.com']=';-h core-vpn.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+    ['etl4-onsite.chaordic.com.br']=''
+    ['etl4-mail.chaordic.com.br']=''
+    ['docker-registry.chaordicsystems.com']='5000'
+    ['graylog.chaordicsystems.com']=';-h 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
+    ['analytics.chaordic.com.br']=';-h analytics.chaordic.com.br -s chaordic.com.br -p /etc/nginx/ssl/ -c STAR_chaordic_com_br.ca_ssl_bundle -k STAR_chaordic_com_br.key'
+    ['core-vpn.chaordicsystems.com']=';-h core-vpn.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+    ['core-vpn-platform.chaordicsystems.com']=';-h core-vpn-platform.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+    ['core-vpn-products.chaordicsystems.com']=';-h core-vpn-products.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+    ['core-vpn-cloud.chaordicsystems.com']=';-h core-vpn-cloud.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+    ['static-brasil1.chaordicsystems.com']=';-h static-brasil1.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/keys/ -c STAR_chaordicsystems_com.ca_ssl_bundle.crt -k STAR_chaordicsystems_com.key'
     )
 
     update_certs DOMAINS
