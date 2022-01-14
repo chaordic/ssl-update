@@ -302,7 +302,7 @@ get_aws_id() {
 # return: 0 on sucess, otherwise an error code greater than zero
 update_certs() {
     local -n fqdns=$1
-    local ret=0 msg="" aux=""
+    local ret=0 msg="" aux="" chain="" key=""
 
     if [ $# -gt 2 ]; then
         pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
@@ -379,9 +379,9 @@ update_certs() {
             func="${g_hooks[$fqdn]}"
         fi
 
-        $func "$(cat ${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME})" \
-              "$(cat ${OUTPUT_DIR}/${fqdn}/${PRIVK_FILENAME})" \
-              "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
+        chain=${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}
+        key=${OUTPUT_DIR}/${fqdn}/${PRIVK_FILENAME}
+        $func "$(cat $chain)" "$(cat $key)" "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
         err=$?
         if [ $err -eq 0 ]; then
             aux=$(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")
