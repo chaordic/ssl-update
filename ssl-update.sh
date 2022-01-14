@@ -379,7 +379,9 @@ update_certs() {
             func="${g_hooks[$fqdn]}"
         fi
 
-        $func "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}" "${OUTPUT_DIR}/${fqdn}/${PRIVK_FILENAME}" "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
+        "$func" "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}" \
+                "${OUTPUT_DIR}/${fqdn}/${PRIVK_FILENAME}" \
+                "$(get_extra_params "$fqdn" "$subject" "${fqdns[$fqdn]}")"
         err=$?
         if [ $err -eq 0 ]; then
             aux=$(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")
