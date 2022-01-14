@@ -75,13 +75,18 @@ parse_params() {
     return $ret
 }
 
+fullchain_content=""
+privkey_content=""
 import_certificate() {
-    local fullchain_content="$1"
-    local privkey_content="$2"
+    local chain_path_filename="$1"
+    local key_pathfilename="$2"
     local extended="$3"
 
     local ssh_output="" ifs_bk=$'$IFS'
     local last_line="" flag="" ret=0
+
+    fullchain_content="$(cat $chain_path_filename)"
+    privkey_content="$(cat $key_pathfilename)"
 
     if ! parse_params "$extended"; then return 1; fi
 

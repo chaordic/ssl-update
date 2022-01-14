@@ -6,14 +6,19 @@ g_hooks['docker-registry.chaordicsystems.com']=restart_docker_registry
 #
 # SSH_USER="<my prefered user>"
 
+fullchain_content=""
+privkey_content=""
 restart_docker_registry() {
-    local fullchain_content="$1"
-    local privkey_content="$2"
+    local chain_path_filename="$1"
+    local key_pathfilename="$2"
 
     local dst_dir="/mnt/certs/"
     local container_name="platform-registry"
     local host="docker-registry.chaordicsystems.com"
     local ssh_output=""
+
+    fullchain_content="$(cat $chain_path_filename)"
+    privkey_content="$(cat $key_pathfilename)"
 
 ssh_output=$(ssh -T ${SSH_USER}@${host} "
 sudo su -- <<'EOFSU'
