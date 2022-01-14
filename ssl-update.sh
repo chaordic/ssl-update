@@ -238,11 +238,12 @@ trim_subject() {
 #   e.g.: ['myhost.mydomain.com']='8080;--host x.x.x.x,y.y.y.y --subject mydomain.com'
 get_extra_params() {
     local fqdn="$1" subject="$2" domain_params=$3
-    local params=""
+    local params="" no_wildcard=""
 
     params=$(awk -F';' '{print $2}' <<<"$domain_params")
     if [ -z "$params" ]; then
-        params="--host $fqdn --subject $(trim_subject $subject)"
+        no_wildcard=$(trim_subject "$subject")
+        params="--host $fqdn --subject $no_wildcard"
     fi
 
     echo "$params"

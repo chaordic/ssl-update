@@ -28,10 +28,12 @@ _cert_filename="STAR_chaordic_com_br.ca_ssl_bundle.crt"
 _priv_filename="STAR_chaordic_com_br.key"
 
 parse_params() {
-    local params="$1"
     local ret=0 opts_output=""
+    local ifs_bk=$'$IFS'
 
-    set -- $params
+    IFS=' '
+    set -- $1
+    IFS=$ifs_bk
     opts_output=$(getopt --longoptions "$( printf "%s," ${LONG_OPTS[@]} )" \
                          --name "$(basename $BASH_SOURCE)" \
                          --options "$SHORT_OPTS" \
