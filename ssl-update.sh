@@ -358,7 +358,8 @@ update_certs() {
 
             pmsg warn "$msg"
             pmsg info "downloading certificate from S3 ..."
-            get_cert_from_s3 "$(trim_subject $subject)" "${OUTPUT_DIR}/${fqdn}"
+            aux=$(trim_subject "$subject")
+            get_cert_from_s3 "$aux" "${OUTPUT_DIR}/${fqdn}"
             if [ $? -ne 0 ]; then
                 pmsg error "failed downloading chain and or private key for '$fqdn'!"
                 continue
