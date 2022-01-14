@@ -304,7 +304,7 @@ update_certs() {
     local -n fqdns=$1
     local ret=0 msg="" aux=""
 
-    if [ $# -ne 1 ]; then
+    if [ $# -gt 2 ]; then
         pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
         exit 1
     fi
