@@ -221,7 +221,7 @@ trim_subject() {
 }
 
 ###
-# get_extra_params - get extra params from the pair of arguments from
+# get_exta_params - get extra params from the pair of arguments from
 #   the assiciative array parameters. Those arguments are arbitrary, verify
 # the documentation for the hook function; e.g: default.sh import_certificate.
 # In case the associative element does not have values (pair <port>;arguments)
@@ -240,7 +240,7 @@ get_extra_params() {
     local fqdn="$1" subject="$2" domain_params=$3
     local params=""
 
-    params=$(awk -F';' '{print $2}' <<<$domain_params)
+    params=$(awk -F';' '{print $2}' <<<"$domain_params")
     if [ -z "$params" ]; then
         params="--host $fqdn --subject $(trim_subject $subject)"
     fi
