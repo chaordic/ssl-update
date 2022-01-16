@@ -330,7 +330,7 @@ update_certs() {
     func=""
     host=""
     for fqdn in ${!fqdns[@]}; do
-        pmsg info "Checking SSL for '$fqdn'"
+        pmsg info "Checking SSL for `tput bold`'$fqdn'`tput sgr0`"
         port=$(get_port "${fqdns[$fqdn]}")
         if ! is_number "$port"; then
             pmsg error "param for domain '$fqdn' is not a number arg. '$port'; ignoring domain!"
