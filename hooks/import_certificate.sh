@@ -87,8 +87,8 @@ import_certificate() {
     local ssh_output="" ifs_bk=$'$IFS'
     local last_line="" flag="" ret=0
 
-    fullchain_content="$(cat $chain_path_filename)"
-    privkey_content="$(cat $key_pathfilename)"
+    fullchain_content=$(cat "$chain_path_filename")
+    privkey_content=$(cat "$key_pathfilename")
 
     if ! parse_params "$extended"; then return 1; fi
 
