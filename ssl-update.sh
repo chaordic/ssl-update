@@ -303,7 +303,7 @@ get_aws_id() {
 # return: 0 on sucess, otherwise an error code greater than zero
 update_certs() {
     local -n fqdns=$1
-    local ret=0 msg="" aux=""
+    local ret=0 msg="" aux="" ndays=0 new_ndays=0
 
     if [ $# -gt 2 ]; then
         pmsg error "wrong number of parameters; expected associative array with domain and may have extra parameters!!!"
@@ -362,9 +362,20 @@ update_certs() {
             aux=$(trim_subject "$subject")
             get_cert_from_s3 "$aux" "${OUTPUT_DIR}/${fqdn}"
             if [ $? -ne 0 ]; then
-                pmsg error "failed downloading chain and or private key for '$fqdn'!"
+                pmsg error "failed downloading chain and or private key for '$fqdn'; DOMAIN WON'T BE RENEW!"
                 continue
                 ret=1
+            fi
+            ###
+            # Sanity check; if cert from S3 is really new
+            # in case it is not newer, mark as failed and continue
+            #
+            aux=$(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")
+            new_ndays=$(get_days_from_now "$aux")
+            if [ $ndays -le $new_ndays ]; then
+                pmsg error "Certificate from S3 does no make sence;\nactual cert. vs s3 cert.\nactual expire: '$ndays'\nS3 expire: '$new_ndays'"
+                ret=1
+                continue
             fi
         else
             pmsg info "the subject '$subject' will expire in $ndays day(s) no action will be taken."
