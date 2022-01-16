@@ -412,16 +412,17 @@ for helper in $(ls lib/*.sh); do source $helper; done
 
 __main__() {
     declare -rA DOMAINS=(
-    ['etl4-onsite.chaordic.com.br']=''
-    ['etl4-mail.chaordic.com.br']=''
-    ['docker-registry.chaordicsystems.com']='5000'
-    ['graylog.chaordicsystems.com']=';-h 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
-    ['analytics.chaordic.com.br']=';-h analytics.chaordic.com.br -s chaordic.com.br -p /etc/nginx/ssl/ -c STAR_chaordic_com_br.ca_ssl_bundle -k STAR_chaordic_com_br.key'
-    ['core-vpn.chaordicsystems.com']=';-h core-vpn.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
-    ['core-vpn-platform.chaordicsystems.com']=';-h core-vpn-platform.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
-    ['core-vpn-products.chaordicsystems.com']=';-h core-vpn-products.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
-    ['core-vpn-cloud.chaordicsystems.com']=';-h core-vpn-cloud.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
-    ['static-brasil1.chaordicsystems.com']=';-h static-brasil1.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/keys/ -c STAR_chaordicsystems_com.ca_ssl_bundle.crt -k STAR_chaordicsystems_com.key'
+        ['etl4-onsite.chaordic.com.br']=''
+        ['etl4-mail.chaordic.com.br']=';-h etl4-mail.chaordic.com.br -s chaordic.com.br -p /etc/ssl/certs/ -c STAR_chaordic_com_br.ca_ssl_bundle.crt -k STAR_chaordic_com_br.key'
+        ['docker-registry.chaordicsystems.com']='5000'
+        ['graylog.chaordicsystems.com']=';-h 10.50.10.135,10.50.10.240 -s chaordicsystems.com'
+        ['analytics.chaordic.com.br']=';-h analytics.chaordic.com.br -s chaordic.com.br -p /etc/nginx/ssl/ -c STAR_chaordic_com_br.ca_ssl_bundle -k STAR_chaordic_com_br.key'
+        ['core-vpn.chaordicsystems.com']=';-h core-vpn.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+        ['core-vpn-platform.chaordicsystems.com']=';-h core-vpn-platform.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+        ['core-vpn-products.chaordicsystems.com']=';-h core-vpn-products.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+        ['core-vpn-cloud.chaordicsystems.com']=';-h core-vpn-cloud.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/ssl/ -c STAR_chaordicsystems_com.ca_ssl_bundle -k STAR_chaordicsystems_com.key'
+        ['static-brasil1.chaordicsystems.com']=';-h static-brasil1.chaordicsystems.com,static-brasil2.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/keys/ -c STAR_chaordicsystems_com.ca_ssl_bundle.crt -k STAR_chaordicsystems_com.key'
+        ['static-aws1.chaordicsystems.com']=';-h static-aws1.chaordicsystems.com -s chaordicsystems.com -p /etc/nginx/keys/ -c STAR_chaordicsystems_com.ca_ssl_bundle.crt -k STAR_chaordicsystems_com.key'
     )
 
     update_certs DOMAINS
