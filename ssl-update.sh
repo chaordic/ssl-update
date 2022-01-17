@@ -372,7 +372,7 @@ update_certs() {
             #
             aux=$(get_expired_date_from_cert "${OUTPUT_DIR}/${fqdn}/${CHAIN_FILENAME}")
             new_ndays=$(get_days_from_now "$aux")
-            if [ $ndays -le $new_ndays ]; then
+            if [ $new_ndays -le $ndays ]; then
                 pmsg error "Certificate from S3 does no make sence;\nactual cert. vs s3 cert.\nactual expire: '$ndays' day(s)\nS3 expire: '$new_ndays' day(s)"
                 ret=1
                 continue
